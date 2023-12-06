@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>CV Parser & Matching</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO"
+    crossorigin="anonymous">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="{{ url_for('static', filename='main.js') }}"></script>  
+
+<body onunload="">
+    <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
+  <a class="navbar-brand" href="/">CV Parser & Matching</a>
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarsExampleDefault" aria-controls="navbarsExampleDefault" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+
+  <div class="collapse navbar-collapse" id="navbarsExampleDefault">
+    <ul class="navbar-nav mr-auto">
+      <li class="nav-item active">
+        <a class="nav-link" href="/">Home <span class="sr-only">(current)</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/result">Result <span class="sr-only">(current)</span></a>
+      </li>
+    </ul>
+  </div>
+</nav>
+<div id="loadingModal">
+  <div class="spinner"></div>
+  <span id="spinner-text">Processing Now...</span>
+</div>
+<br/>
+<br/>
+<br/>
+    <div class="container">
+      <form method=post enctype=multipart/form-data>
+        <h4>Upload CVs</h4><br>
+        <div class="input-group mb-4">
+          <input type=file name=file multiple class="form-control">
+          <div class="input-group-append">
+            <button type=submit class="btn btn-outline-primary"><i class="fa fa-send"></i> Upload</button>
+          </div>
+        </div>
+      </form>
+      <br/>
+
+      {%- if files %}
+      <h4>Uploaded CVs</h4>
+        <div class="input-group mb-3">
+          <input type="text" class="form-control" id="cvfilter" name="searchKey" placeholder="Search">
+          <div class="input-group-append">
+            <button type="button" class="btn btn-success"><i class="fa fa-search"></i> Search</button>
+          </div>
+        </div>
+      <div class="jumbotron">
+        <ul class="list-group" id="cvlist">
+          {%- for code, file in files.items() %}
+            <li class="list-group-item"><a href="/download/{{ code }}">{{ file }}</a></li>
+          {% endfor %}
+        </ul>
+        <nav aria-label="List navigation">
+          <ul class="pagination justify-content-center" id="pagination-nav">
+            <li class="page-item" id="prevBtn"><a class="page-link" href="#"> Prev </a></li>
+            <ul class="pagination justify-content-center" id="pagination">
+
+            </ul>
+            <li class="page-item" id="nextBtn"><a class="page-link" href="#"> Next </a></li>
+          </ul>
+        </nav>
+      </div>
+      {% endif %}
+
+      <br/>
+      <form method="POST" action="/process" id="matching-form">
+        <div class="form-group">
+          <label>Enter Your Job Description</label>
+          <textarea type="text" rows="5" cols="5" class="form-control"  name="rawtext" required="true">   </textarea>
+          <br/>
+          <button type="reset" class="btn btn-primary"><i class="fa fa-eraser"></i> Clear</button>
+          <button type="submit" class="btn btn-info" id="my-button"><i class="fa fa-database"></i> Submit</button>
+        
+        </div>
+      </form>
+    </div>
+    
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.6/umd/popper.min.js" integrity="sha384-wHAiFfRlMFy6i5SRaxvfOCifBUQy1xHdJ/yoi7FRNXMRBu5WHdZYu1hA6ZOblgut" crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.min.js" integrity="sha384-B0UglyR+jN6CkvvICOB2joaf5I4l3gm9GU6Hc1og6Ls7i6U/mkkaduKaBhlAXv9k" crossorigin="anonymous"></script>
+    <script>
+      $(document).ready(function() { 
+
+        var itemsPerPage = 5; // Number of items per page 
+        var listItems = $('#cvlist .list-group-item'); 
+        var pageCount = Math.ceil(listItems.length / itemsPerPage); 
+        var currentWindow = 0;
+        if (pageCount > 8) {
+          for (var i = 1 + currentWindow; i <= currentWindow + 8; i++) { 
+            var link = $('<li class="page-item"><a class="page-link" href="#">' + i + '</a></li>'); 
+            $('#pagination').append(link); 
+          }
+        }else {
+        // Generate pagination links 
+          for (var i = 1; i <= pageCount; i++) { 
+            var link = $('<li class="page-item"><a class="page-link" href="#">' + i + '</a></li>'); 
+            $('#pagination').append(link); 
+          } 
+        }
+        // Show the first page by default 
+        showPage(1); 
+
+        function pagination_reload(filteredItems) {
+          listItems = filteredItems; 
+          pageCount = Math.ceil(listItems.length / itemsPerPage);
+          currentWindow = 0;
+          console.log(listItems.length);
+          $('#pagination').empty();
+          if (pageCount > 8) {
+            $('#prevBtn').show(); 
+            for (var i = 1 + currentWindow; i <= currentWindow + 8; i++) { 
+              var link = $('<li class="page-item"><a class="page-link" href="#">' + i + '</a></li>'); 
+              $('#pagination').append(link); 
+            }
+            $('#nextBtn').show(); 
+          }else {
+            $('#prevBtn').hide(); 
+          // Generate pagination links 
+            for (var i = 1; i <= pageCount; i++) { 
+              var link = $('<li class="page-item"><a class="page-link" href="#">' + i + '</a></li>'); 
+              $('#pagination').append(link); 
+            } 
+            $('#nextBtn').hide(); 
+
+          }
+          // Show the first page by default 
+          showPage(1); 
+        }
+
+        function pagination_control() {
+          $('#pagination').empty();
+          if (pageCount > 8) {
+            $('#prevBtn').show(); 
+            for (var i = 1 + currentWindow; i <= currentWindow + 8; i++) { 
+              var link = $('<li class="page-item"><a class="page-link" href="#">' + i + '</a></li>'); 
+              $('#pagination').append(link); 
+            }
+            $('#nextBtn').show(); 
+          }else {
+            $('#prevBtn').hide(); 
+          // Generate pagination links 
+            for (var i = 1; i <= pageCount; i++) { 
+              var link = $('<li class="page-item"><a class="page-link" href="#">' + i + '</a></li>'); 
+              $('#pagination').append(link); 
+            } 
+            $('#nextBtn').hide(); 
+
+          }
+        }
+
+        function nextPage(e){
+        // e.preventDefault();
+        if (currentWindow < pageCount - 8) {
+            currentWindow++;
+            console.log(currentWindow);
+            pagination_control();
+          } 
+
+        }
+
+        function prevPage(e){
+          console.log(currentWindow);
+          e.preventDefault();
+          if (currentWindow !== 0) {
+            currentWindow--;
+            console.log(currentWindow);
+            pagination_control();
+          } 
+        }
+
+        $('#prevBtn').on('click', function(e) {
+          console.log(currentWindow);
+          e.preventDefault();
+          if (currentWindow !== 0) {
+            currentWindow--;
+            console.log(currentWindow);
+            pagination_control();
+            showPage(currentWindow - 1);
+          } 
+        });
+
+        $('#nextBtn').on('click', function(e) {
+          // e.preventDefault();
+          if (currentWindow < pageCount - 8) {
+            currentWindow++;
+            console.log(currentWindow);
+            pagination_control();
+            showPage(currentWindow + 1);
+          } 
+
+        });
+      
+        // Handle click event on pagination links 
+        $('#pagination').on('click', '.page-link', function(e) { 
+          // e.preventDefault(); 
+          var page = parseInt($(this).text());
+          if (/^\d+$/.test(page)) {
+            showPage(page); 
+          } 
+        }); 
+      
+        // Function to show the selected page 
+        function showPage(page) { 
+          var startIndex = (page - 1) * itemsPerPage; 
+          var endIndex = startIndex + itemsPerPage; 
+          listItems.hide().slice(startIndex, endIndex).show(); 
+      
+          // Update active state of pagination link 
+          if (pageCount > 8) {
+            $('#pagination .page-item').removeClass('active');           
+            $('#pagination .page-item').eq(page - currentWindow - 1).addClass('active'); 
+          } else {
+            $('#pagination .page-item').removeClass('active');           
+            $('#pagination .page-item').eq(page - 1).addClass('active'); 
+          }
+        } 
+
+        $('#cvfilter').on('keyup', function() {
+          var value = $(this).val().toLowerCase();
+          $('#cvlist .list-group-item').filter(function() {
+            $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1);
+          });
+          var filteredItems = $('#cvlist .list-group-item:visible');
+          console.log(filteredItems.length);
+          pagination_reload(filteredItems);
+        });
+
+        $('#matching-form').submit(function(e){
+          $("#loadingModal").show();
+          // setTimeout(function() {
+          //   $("#loadingModal").hide(); // Redirect to the link URL after a delay
+          // }, 20000); // Adjust the delay time as needed
+        });
+
+      });
+    </script>
+</body>
+</html>
