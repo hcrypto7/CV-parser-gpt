@@ -14,9 +14,9 @@ def preprocess(txt):
     :param txt: list containing texts
     :return: preprocessed list of texts
     """
-    sw = stopwords.words('spanish')
+    # sw = stopwords.words('spanish')
     space_pattern = '\s+'
-    special_letters =  "[^a-zA-Z#]]"
+    # special_letters =  "[^a-zA-Z#]]"
     p_txt = []
 
     for resume_text in txt : 

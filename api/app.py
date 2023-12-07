@@ -11,10 +11,13 @@ import uuid
 import datetime
 from flask import Flask, abort, flash, request, redirect, url_for, render_template, send_file
 import plotly.express as px
+from gpt import gptProcess
+
 
 #used directories for data, downloading and uploading files 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files\\resumes\\')
 DOWNLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files\\outputs\\')
+OUTPUT_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files\\processed\\')
 DATA_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Data\\')
 
 # Make directory if UPLOAD_FOLDER does not exist
@@ -91,7 +94,7 @@ def view_result(file):
     if os.path.exists(filepath):
         df = pd.read_csv(filepath)
         # fig = px.sunburst(df, email='E-Mail ID', matching='JD 1', phoneNumber='Phone No.')
-        fig = px.sunburst(df, path=['Candidate\'s Name', 'E-Mail ID', 'Phone No.', 'Skills'], values='JD 1')
+        fig = px.sunburst(df, path=['E-Mail', 'Skills'], values='JD 1')
         return fig.to_html()
         # return send_file(filepath, as_attachment=False)
     abort(404)
@@ -132,6 +135,7 @@ def process():
         jdtxt=[rawtext]
         resumetxt=read_files(UPLOAD_FOLDER)
         p_resumetxt = preprocess(resumetxt)
+        # p_resumetxt = resumetxt
         p_jdtxt = preprocess(jdtxt)
 
         feats = txt_features(p_resumetxt, p_jdtxt)
@@ -142,13 +146,35 @@ def process():
         t = pd.DataFrame({'Original Resume':resumetxt, 'Processed Resume':p_resumetxt})
         dt = pd.concat([df,t],axis=1)
 
-        dt['Phone No.']=dt['Processed Resume'].apply(lambda x: get_number(x))
+        # dt['Phone No.']=dt['Processed Resume'].apply(lambda x: get_number(x))
         
-        dt['E-Mail ID']=dt['Original Resume'].apply(lambda x: get_email(x))
+        # dt['E-Mail ID']=dt['Original Resume'].apply(lambda x: get_email(x))
 
-        dt['Original']=dt['Original Resume'].apply(lambda x: rm_number(x))
-        dt['Original']=dt['Original'].apply(lambda x: rm_email(x))
-        dt['Candidate\'s Name']=dt['Original'].apply(lambda x: get_name(x))
+        # dt['Original']=dt['Original Resume'].apply(lambda x: rm_number(x))
+        # dt['Original']=dt['Original'].apply(lambda x: rm_email(x))
+        # dt['Candidate\'s Name']=dt['Original'].apply(lambda x: get_name(x))
+
+        # gptProcess(dt['Original Resume'])
+
+        # skills = pd.read_csv(DATA_FOLDER+'skill_red.csv')
+        # skills = skills.values.flatten().tolist()
+        # skill = []
+        # for z in skills:
+        #     r = z.lower()
+        #     skill.append(r)
+
+        # dt['Skills']=dt['Processed Resume'].apply(lambda x: get_skills(x,skill))
+        # dt = dt.drop(columns=['Original','Original Resume', 'Processed Resume'])
+        datetimenow = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        processed_path = OUTPUT_FOLDER + "Candidates-" + datetimenow
+        os.makedirs(processed_path)
+        sorted_dt = dt.sort_values(by=['JD 1'], ascending=False)
+        sorted_dt = sorted_dt.head(3)
+        sorted_dt['Gpt-Form'] = sorted_dt.apply(lambda x: gptProcess(x['Original Resume'], processed_path, x.name), axis = 1)
+        sorted_dt = sorted_dt.drop(columns=['Original Resume', 'Processed Resume'])
+        # sorted_dt['Phone']=sorted_dt['Gpt-Form'].apply(lambda x: get_number(x))
+        sorted_dt['E-Mail']=sorted_dt['Gpt-Form'].apply(lambda x: get_email(x))
+        # sorted_dt['Name']=sorted_dt['Gpt-Form'].apply(lambda x: get_name(x))
 
         skills = pd.read_csv(DATA_FOLDER+'skill_red.csv')
         skills = skills.values.flatten().tolist()
@@ -157,12 +183,10 @@ def process():
             r = z.lower()
             skill.append(r)
 
-        dt['Skills']=dt['Processed Resume'].apply(lambda x: get_skills(x,skill))
-        dt = dt.drop(columns=['Original','Original Resume', 'Processed Resume'])
-        sorted_dt = dt.sort_values(by=['JD 1'], ascending=False)
-
-        out_path = DOWNLOAD_FOLDER+"Candidates-" + datetime.datetime.now().strftime("%Y%m%d%H%M%S") + ".csv"
-        print(out_path)
+        sorted_dt['Skills']=sorted_dt['Gpt-Form'].apply(lambda x: get_skills(x,skill))
+        
+        out_path = DOWNLOAD_FOLDER+"Candidates-" + datetimenow + ".csv"
+        print(sorted_dt)
         sorted_dt.to_csv(out_path, index=False)
         send_file(out_path, as_attachment=True)
         return redirect(url_for('result'))

@@ -4,8 +4,9 @@ from txt_to_features import txt_features, feats_reduce
 from extract_entities import get_number, get_email, rm_email, rm_number, get_name, get_skills, get_location
 from model import simil
 import pandas as pd
-#import nltk
-#nltk.download('omw-1.4')
+from gpt import main as gptOut
+import nltk
+nltk.download('stopwords')
 
 
 if __name__=="__main__":
@@ -33,7 +34,7 @@ if __name__=="__main__":
     dt['Original']=dt['Original Resume'].apply(lambda x: rm_number(x))
     dt['Original']=dt['Original'].apply(lambda x: rm_email(x))
     dt['Candidate\'s Name']=dt['Original'].apply(lambda x: get_name(x))
-
+    gptOut(dt['Original Resume'])
     skills = pd.read_csv('/home/ayoub/DS/Parser-Shortlisting-Project/Data/skill_red.csv')
     skills = skills.values.flatten().tolist()
     skill = []

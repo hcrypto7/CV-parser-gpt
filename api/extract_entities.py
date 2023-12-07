@@ -150,7 +150,6 @@ def get_name(text):
         if ent.label_ == "PER":
             cand = ent.text
             print("name:", cand)
-            break
         elif ent.label_ == "ORG":
             education = ent.text
             print("org:", education)
